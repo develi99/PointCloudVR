@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 0
+    path: Assets/Scenes/Archiv/RGB_Scene.unity
+    guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 0
+    path: Assets/Scenes/Archiv/Pointcloud_simple.unity
+    guid: c6475aa4418c09344bf50a1895897298
+  - enabled: 0
+    path: Assets/Scenes/Archiv/QuestTest.unity
+    guid: b1fb2ac92a803db48938db78cf5952dc
+  - enabled: 0
+    path: Assets/Scenes/Archiv/Pointcloud_compute.unity
+    guid: d8987880192575b41b9b14951234ce88
+  - enabled: 0
+    path: Assets/Scenes/Archiv/Pointcloud_On_Quest.unity
+    guid: a4b779d88e5ef35408a8bde93183081b
+  - enabled: 0
+    path: Assets/Scenes/Archiv/Pointcloud_advanced.unity
+    guid: 98c97835b195bc44caea54246424f152
+  - enabled: 1
+    path: Assets/Scenes/Cubes_advanced.unity
+    guid: 4c3e26d8c128889469bc51d37ab9fdc3
+  - enabled: 0
+    path: Assets/Scenes/Archiv/Cubes_simple.unity
+    guid: ac87638ffc93bed4da93a16aeebbf51e
+  m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: c776680e14f703b4eb000c604e689def, type: 2}
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 6c8d7a1b2ebe8a7438509417a10de37e, type: 2}
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 2fb00cb7be9f554498baf7a1fa7373bc, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: c9d567619af5e2341bd94fd920bd5cc4, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: becb58a6b8ecc6c46b6e4546f7f172a4, type: 2}
+    xr.sdk.mock-hmd.settings: {fileID: 11400000, guid: c6a894f0657c3f341ba358c319ae1dde, type: 2}
+  m_UseUCBPForAssetBundles: 0

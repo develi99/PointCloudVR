@@ -1,2 +1,4 @@
 .venv/
-streamer.egg-info
+streamer.egg-info/
+streamer/streamer.egg-info/
+my_project.zip
