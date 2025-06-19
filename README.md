@@ -1,33 +1,44 @@
-# PointCloudVR
-Live visualization of point clouds from a camera stream in VR using Meta Quest.
+# 📡 PointCloudVR
+
+**PointCloudVR** enables live visualization of RGB-D point clouds streamed from an external camera into a VR environment using Meta Quest. It combines real-time depth processing, GPU-accelerated rendering, and XR controller interaction for immersive exploration of spatial data.
+
+---
 
 ## 🚀 Features
-- Loading, processing and streaming of RGB and depth data
-- Real-time computation and visualization of Pointclouds on Meta Quest (Unity XR)
-- Modular architecture for extension
 
-## 🎥 Video
-We used PointCloudVR for making Teleoperated Demonstrations. 
-You can find a video of it in [video](video/).
-In this video we used a downsampled rgb and depth image (214x160 = ~34K). Each pixel is represented as a cube, so ~34K Cubes are rendered.
-Here we reached ~70 fps rendering. The datastreaming is here the bottleneck with ~30 fps. 
+- 🔄 Real-time streaming of RGB and depth data via ZeroMQ
+- 🧠 GPU-based computation and rendering of 3D point clouds
+- 🎮 Intuitive VR interaction using Meta Quest controllers (Unity XR)
+- 🧩 Modular architecture – easy to extend or integrate into other XR workflows
+
+---
+
+## 🎥 Demo Video
+
+PointCloudVR was used for **teleoperated robot demonstrations**.
+
+A demo video is available in the [`video/`](video/) folder.
+
+- Input resolution: **214 × 160** (~34,000 points)
+- Each pixel is visualized as a **3D cube**
+- Achieved:
+  - **~70 FPS rendering**
+  - **~30 FPS data streaming** (main bottleneck)
+
+---
 
 ## 🧱 Project Structure
+
 ```bash
 PointCloudVR/
-├── python/ The Python Code of the Streamer
-├── unity/ The Unity Project for the Meta Quest Application
-├── example/ Some examples of setting a the streamer
-├── docs/ Documentation
-├── video/ videos
+├── python/      # Python-based streamer sending RGBD data
+├── unity/       # Unity XR application for Meta Quest
+├── example/     # Example configurations for the streamer
+├── docs/        # Project documentation
+├── video/       # Demo videos
 ├── LICENSE
 └── README.md
 ```
-
-## Installation
-
-
-
 
 ## 📄 License
 
