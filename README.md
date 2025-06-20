@@ -40,6 +40,15 @@ PointCloudVR/
 └── README.md
 ```
 
+## Installation
+
+
+## Limitations
+
+The application on Meta Quest requires RGB-D data, with the RGB component provided as a JPEG image and the depth data as a raw array.
+A key limitation is that it is currently not possible to generate a point cloud using data from more than one camera directly on the Meta Quest.
+Due to hardware constraints of the Meta Quest, it would be more efficient to compute the point cloud externally—ideally within the Python script—and then transmit the resulting data to the headset.
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
