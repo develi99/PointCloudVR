@@ -20,7 +20,7 @@ Actions are the last Piece of the Processing Pipeline. Here you can see a ShowIm
 
 
 ## Meta Quest
-On Meta Quest the pointcloud is generation via compute shader based on the rgb and depth image. Instanced Rendering and an own shader are used to render the cubes efficient. The Code consists of three parts, [C# Code](../unity/Assets/Scripts/PointCloudVR/CubeRendering.cs), [Compute Buffer](../unity/Assets/Scripts/PointCloudVR/CubeRendering.copmute) and [Rendering Shader](../unity/Assets/Scripts/PointCloudVR/CubeRendering.shader).
+On Meta Quest the pointcloud is generation via compute shader based on the rgb and depth image. Instanced Rendering and an own shader are used to render the cubes efficient. The Code consists of three parts, [C# Code](../unity/Assets/Scripts/PointCloudVR/CubeRendering.cs), [Compute Shader](../unity/Assets/Scripts/PointCloudVR/CubeRendering.compute) and [Rendering Shader](../unity/Assets/Scripts/PointCloudVR/CubeRendering.shader).
 
 ### [C# Code](../unity/Assets/Scripts/PointCloudVR/CubeRendering.cs).
 
