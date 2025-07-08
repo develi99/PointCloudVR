@@ -52,6 +52,7 @@ class DownSampling(ProcessingStep):
         if img.ndim == 3:  # RGB oder multi-channel
             # block_reduce erwartet tuple mit Länge ndim, hier z.B. (block_size, block_size, 1)
             down = block_reduce(img, block_size=(self.block_size, self.block_size, 1), func=func)
+            down = down.astype(np.uint8)
         else:
             down = block_reduce(img, block_size=(self.block_size, self.block_size), func=func)
 

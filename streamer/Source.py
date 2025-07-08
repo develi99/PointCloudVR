@@ -4,10 +4,9 @@ import zmq
 import struct
 import socket
 import numpy as np
-import streamer.Datasources as ds
-
-#from pyk4a import PyK4A, Config, CalibrationType, ColorResolution, DepthMode
-#from pyk4a.calibration import Calibration
+import Datasources as ds
+from pyk4a import PyK4A, Config, CalibrationType, ColorResolution, DepthMode
+from pyk4a.calibration import Calibration
 
 class Source(ABC):
     @abstractmethod
@@ -69,16 +68,16 @@ class RealSenseCameraStrategy(CameraStrategy):
         color_frame = aligned.get_color_frame()
         if not depth_frame or not color_frame:
             return None, None
-        #depth_frame = self.apply_filters(depth_frame)
+        depth_frame = self.apply_filters(depth_frame)
 
         o = self.get_intrinsics()
-        return np.asanyarray(color_frame.get_data()), np.asanyarray(depth_frame.get_data()), ds.CameraConfig(o["fx"], o["fy"], o["ppx"], o["ppy"])
+        return np.asanyarray(color_frame.get_data()), np.asanyarray(depth_frame.get_data()), CameraConfig(o["fx"], o["fy"], o["ppx"], o["ppy"])
 
     def apply_filters(self, depth_frame):
         #filtered = self.spatial.process(depth_frame)
         #filtered = self.temporal.process(filtered)
         #filtered = self.hole_filling.process(filtered)
-        pass
+        return filtered
 
     def get_intrinsics(self):
         if self.profile is None:
@@ -289,9 +288,7 @@ class InternetStrategy(Source):
 
     def get_frame(self):
         try:
-            print("read message")
             packet = self.socket.recv()
-            print("read message finished")
         except zmq.Again:
             print("[WARN] Kein Paket verfügbar (recv timeout oder non-blocking).")
             return None, None
@@ -320,9 +317,8 @@ class InternetStrategy(Source):
 
             # 5. Kamera-Parameter (4 float32)
             fx, fy, cx, cy = struct.unpack_from('<4f', packet, offset)
-            offset += 16   
-            
-            print("read message")
+            offset += 16
+
         except (struct.error, ValueError) as e:
             print(f"[ERROR] Fehler beim Parsen des Pakets: {e}")
             return None, None
@@ -330,7 +326,7 @@ class InternetStrategy(Source):
         try:
             # convert to nparray and adapt size
             rgb_array = np.frombuffer(rgb_bytes, dtype=np.uint8).reshape((self.height, self.width, 3))
-            rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
+            #rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
             depth_array = np.frombuffer(depth_bytes, dtype=np.uint16).reshape((self.height, self.width))
         except ValueError as e:
             print(f"[ERROR] Fehler beim Umwandeln der Bilddaten: {e}")

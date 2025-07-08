@@ -22,6 +22,8 @@ Shader "Custom/InstancedIndirectColorShader"
 
             // Structured Buffers
             StructuredBuffer<float4x4> matrixBuffer;
+            StructuredBuffer<float3> colorBuffer;
+
             Texture2D<float4> _ColorTex;
             int _Width;
 
@@ -49,11 +51,14 @@ Shader "Custom/InstancedIndirectColorShader"
                 o.pos = UnityObjectToClipPos(worldPos);
 
 
-                uint x = v.instanceID % _Width;
-                uint y = v.instanceID / _Width;
+                //uint x = v.instanceID % _Width;
+                //uint y = v.instanceID / _Width;
 
-                float4 color = _ColorTex.Load(int3(x, y, 0));
-                o.color = color;
+                //float4 color = _ColorTex.Load(int3(x, y, 0));
+                //o.color = color;
+
+                float3 color = colorBuffer[v.instanceID];
+                o.color = o.color = float4(color, 1.0);
 
                 return o;
             }

@@ -43,7 +43,7 @@ public class InstancedCubeRenderer : MonoBehaviour
 
     private Thread listenerThread;
     private bool isRunning = false;
-    private PullSocket subSocket;
+    private SubscriberSocket subSocket;
 
 
     //FPS Log
@@ -68,7 +68,7 @@ public class InstancedCubeRenderer : MonoBehaviour
     //Additional Variables, ts means thread safe
     public ComputeShader pointCloudCompute;
     public float CubeSize = 0.01f;
-    public float scale = 100.0f;
+    public float scale = 1.1f;
     private float cullmin_ts = 0.01f, cullmin = 0.01f;
     private float cullmax_ts = 10.0f, cullmax = 10.0f;
     private float x_cull_ts = 2.0f, x_cull = 2.0f;
@@ -76,12 +76,15 @@ public class InstancedCubeRenderer : MonoBehaviour
 
 
     //Controller handling
-    public float moveSpeedPerSecond = 0.2f;
-    public float rotationSpeedDegreesPerSecond = 25.0f;
-    public float scalingRatePerSecond = 1.5f;
-    public float cubeSizePerSecond = 0.01f;
+    public float moveSpeedPerSecond = 12.5f;
+    public float rotationSpeedDegreesPerSecond = 500.0f;
+    public float scalingRatePerSecond = 0.05f;
+    public float cubeSizePerSecond = 0.05f;
 
-    private Vector3 renderingLocation = new Vector3(0,0,0);
+    private bool inputLocked = false;
+    private bool lastMenuButtonState = false;
+
+    private Vector3 renderingLocation = new Vector3(0,0,10);
     private Quaternion renderingRotation = Quaternion.identity;
     private Matrix4x4 poseMatrix = Matrix4x4.identity;
 
@@ -91,6 +94,28 @@ public class InstancedCubeRenderer : MonoBehaviour
     private float fy_ts = 591.4252f, fy = 591.4252f;
     private float cx_ts = 320.1326f, cx = 320.1326f;
     private float cy_ts = 239.1477f, cy = 239.1477f;
+
+
+
+    //PointCloudStuff
+    //private float[] sharedpointCloud;
+    //private float[] latestpointCloud;
+    private short[] sharedxyzData;
+    private short[] latestxyzData;
+    private byte[] sharedrgbData;
+    private byte[] latestrgbData;
+    private int sharedPointCount = 1;
+    private int latestPointCount = 1;
+    private int acutualPointCount = 1;
+    private int numberReceivedPoints = 0;
+    private int numberReceivedPoints_ts= 0;
+    private enum Type
+    {
+        PointCloud,
+        RGBD
+    }
+    private Type type;
+
 
 
     /*
@@ -110,6 +135,7 @@ public class InstancedCubeRenderer : MonoBehaviour
         renderBounds = new Bounds(Vector3.zero, Vector3.one * 1000);
 
         //Init changable Buffers, depending from width and height
+        type = Type.PointCloud;
         InitBuffers();
 
         //Start network thread
@@ -124,27 +150,36 @@ public class InstancedCubeRenderer : MonoBehaviour
      * hera all buffers are create depending on width and height
      */
     void InitBuffers() {
-        UnityEngine.Debug.Log("Init with size " + width + " " + height);
+        
+        if (type.Equals(Type.RGBD)) {
+            UnityEngine.Debug.Log("RGBD Init with size " + width + " " + height);
 
-        rgbTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
-        depthBuffer = new ComputeBuffer(width * height, sizeof(uint));
-        depth = new uint[width * height];
+            rgbTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
+            depthBuffer = new ComputeBuffer(width * height, sizeof(uint));
+            depth = new uint[width * height];
 
-        matrixBuffer = new ComputeBuffer(width * height, Marshal.SizeOf(typeof(Matrix4x4)));
-        instancedMaterial.SetBuffer("matrixBuffer", matrixBuffer);
+            matrixBuffer = new ComputeBuffer(width * height, Marshal.SizeOf(typeof(Matrix4x4)));
+            instancedMaterial.SetBuffer("matrixBuffer", matrixBuffer);
 
-        instancedMaterial.SetTexture("_ColorTex", rgbTexture);
-        instancedMaterial.SetInt("_Width", width);
+            instancedMaterial.SetTexture("_ColorTex", rgbTexture);
+            instancedMaterial.SetInt("_Width", width);
+        }
+
+        else if(type.Equals(Type.PointCloud))
+        {
+            UnityEngine.Debug.Log("PointCloud Init with size " + latestPointCount);
+
+            colorBuffer = new ComputeBuffer(latestPointCount, sizeof(float) * 3);
+            instancedMaterial.SetBuffer("colorBuffer", colorBuffer);
+
+            matrixBuffer = new ComputeBuffer(latestPointCount, Marshal.SizeOf(typeof(Matrix4x4)));
+            instancedMaterial.SetBuffer("matrixBuffer", matrixBuffer);
+            acutualPointCount = latestPointCount;
+
+        }
 
         argsBuffer = new ComputeBuffer(1, 5 * sizeof(uint), ComputeBufferType.IndirectArguments);
-        uint[] args = new uint[5] {
-            (cubeMesh != null) ? cubeMesh.GetIndexCount(0) : 0,
-            (uint) (width * height),
-            (cubeMesh != null) ? cubeMesh.GetIndexStart(0) : 0,
-            (cubeMesh != null) ? cubeMesh.GetBaseVertex(0) : 0,
-            0
-        };
-        argsBuffer.SetData(args);
+
     }
 
 
@@ -175,11 +210,25 @@ public class InstancedCubeRenderer : MonoBehaviour
         var rightController = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
         var leftController = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
 
+        // --- Menü-Button Toggle ---
+        bool menuPressed = IsButtonPressed(leftController, CommonUsages.menuButton);
+
+        // Nur bei Flanke (also wenn gedrückt wird, aber vorher nicht gedrückt war)
+        if (menuPressed && !lastMenuButtonState)
+        {
+            inputLocked = !inputLocked; // Toggle sperren/entsperren
+        }
+        lastMenuButtonState = menuPressed; // Für Flankenerkennung
+
+        // Wenn gesperrt, alle Eingaben ignorieren
+        if (inputLocked)
+            return;
+
+
         //It shouldn't depend on fps
         float moveSpeed = moveSpeedPerSecond * Time.deltaTime;
         float rotationSpeedDegrees = rotationSpeedDegreesPerSecond * Time.deltaTime;
-        float scaleFactorUp = Mathf.Pow(scalingRatePerSecond, Time.deltaTime);
-        float scaleFactorDown = Mathf.Pow(1f / scalingRatePerSecond, Time.deltaTime);
+        float scaleFactor = scalingRatePerSecond * Time.deltaTime;
         float cubeSizeSpeed = cubeSizePerSecond * Time.deltaTime;
 
         if (!rightController.isValid)
@@ -188,43 +237,51 @@ public class InstancedCubeRenderer : MonoBehaviour
         if (!leftController.isValid)
             UnityEngine.Debug.LogWarning("Left controller not valid!");
 
-        // --- RIGHT STICK for rotation (Yaw and Pitch) ---
-        if (rightController.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 rightStick))
+        // --- RIGHT STICK PRESSED for rotation (Pitch, z) ---
+        if (IsButtonPressed(rightController, CommonUsages.primary2DAxisClick))
         {
-            float yaw = rightStick.x * rotationSpeedDegrees;
-            float pitch = -rightStick.y * rotationSpeedDegrees;
-            Quaternion deltaRotation = Quaternion.Euler(pitch, yaw, 0f);
-            renderingRotation = renderingRotation * deltaRotation;
+            Quaternion pitch = Quaternion.Euler(0f, 0f, -rotationSpeedDegrees);
+            renderingRotation = renderingRotation * pitch;
         }
 
         // --- RIGHT BUTTONS for roll ---
         if (IsButtonPressed(rightController, CommonUsages.primaryButton)) // A: roll right
         {
-            Quaternion roll = Quaternion.Euler(0f, 0f, -rotationSpeedDegrees);
+            Quaternion roll = Quaternion.Euler(0f, -rotationSpeedDegrees, 0f);
             renderingRotation = renderingRotation * roll;
         }
 
         if (IsButtonPressed(rightController, CommonUsages.secondaryButton)) // B: roll left
         {
-            Quaternion roll = Quaternion.Euler(0f, 0f, rotationSpeedDegrees);
+            Quaternion roll = Quaternion.Euler(0f, rotationSpeedDegrees, 0);
             renderingRotation = renderingRotation * roll;
         }
 
         // --- RIGHT TRIGGER for scaling up ---
-        /*if (rightController.TryGetFeatureValue(CommonUsages.trigger, out float rightTriggerValue))
+        if (rightController.TryGetFeatureValue(CommonUsages.trigger, out float rightTriggerValue))
         {
+            Quaternion yaw = Quaternion.Euler(-rotationSpeedDegrees, 0f, 0f);
             if (rightTriggerValue > 0.1f) // threshold
-                scale *= scaleFactorUp;
+                renderingRotation = renderingRotation * yaw;
         }
 
         // --- RIGHT GRIP for scaling down ---
         if (rightController.TryGetFeatureValue(CommonUsages.grip, out float rightGripValue))
         {
+            Quaternion yaw = Quaternion.Euler(rotationSpeedDegrees, 0f, 0f);
             if (rightGripValue > 0.1f) // threshold
-                scale *= scaleFactorDown;
-        }*/
+                renderingRotation = renderingRotation * yaw;
+        }
 
 
+
+
+        // --- LEFT STICK PRESSED for rotation (Pitch, z) ---
+        if (IsButtonPressed(leftController, CommonUsages.primary2DAxisClick))
+        {
+            Quaternion pitch = Quaternion.Euler(0f, 0f, rotationSpeedDegrees);
+            renderingRotation = renderingRotation * pitch;
+        }
 
         // --- LEFT STICK for translation X and Z ---
         if (leftController.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 leftStick))
@@ -256,19 +313,8 @@ public class InstancedCubeRenderer : MonoBehaviour
     }
 
 
-    /*
-     * 1. Handle Inputs and calculate Pose Matrix
-     * 2. Thread-safe reading of the Data, that comes from the networking thread
-     * 3. Update buffers
-     * 4. Draw the Cubes
-     * 5. Logging
-     */
-    void Update()
+    void ThreadSafeReadingRGBDData()
     {
-        // 1. Controller Handling
-        controllerHandling();
-
-        // 2. Thread-safe reading
         lock (Lock)
         {
             latestDepthBytes = sharedDepthBytes;
@@ -290,22 +336,78 @@ public class InstancedCubeRenderer : MonoBehaviour
             x_cull = x_cull_ts;
             y_cull = y_cull_ts;
         }
+    }
 
-        // 3. if new data available, update all buffers
-        if (latestDepthBytes != null && latestRgbBytes != null)
+
+    void ThreadSafeReadingPointCloudData()
+    {
+        lock (Lock)
         {
-            if (rgbTexture.width != width || rgbTexture.height != height)
-                InitBuffers();
+            latestxyzData = sharedxyzData;
+            latestrgbData = sharedrgbData;
+            latestPointCount = sharedPointCount;
+            sharedxyzData = null;
+            sharedrgbData = null;
+            
+            numberReceivedPoints = numberReceivedPoints_ts;
+        }
+    }
 
-            rgbTexture.LoadImage(latestRgbBytes);
-            setDepthBuffer();
-            DispatchComputeShader();
 
-            latestDepthBytes = null;
-            latestRgbBytes = null;
+    void Update()
+    {
+        // 1. Controller Handling
+        controllerHandling();
+
+        //RGBD or PointCloud
+        if(type.Equals(Type.PointCloud))
+        {
+            ThreadSafeReadingPointCloudData();
+            UnityEngine.Debug.Log("Pointcloud count 1: " + latestPointCount);
+            if(latestxyzData != null && latestrgbData != null)//if (latestxyzData != null && latestrgbData != null)
+            {
+                UnityEngine.Debug.Log("Pointcloud count: " + latestPointCount);
+                if(acutualPointCount != latestPointCount)
+                {
+                    InitBuffers();
+                }
+                setColorBuffer();
+                setMatrixBufferPointCloud();
+                //setBuffersPointCloud();
+                latestxyzData = null;
+                latestrgbData = null;
+            }
+        }
+        else if(type.Equals(Type.RGBD))
+        {
+            ThreadSafeReadingRGBDData();
+
+            // 3. if new data available, update all buffers
+            if (latestDepthBytes != null && latestRgbBytes != null)
+            {
+                if (rgbTexture.width != width || rgbTexture.height != height)
+                    InitBuffers();
+
+                rgbTexture.LoadImage(latestRgbBytes);
+                setDepthBuffer();
+                DispatchComputeShader();
+
+                latestDepthBytes = null;
+                latestRgbBytes = null;
+            }
         }
 
+
         // 4. Draw all cubes
+        uint[] args = new uint[5] {
+            (cubeMesh != null) ? cubeMesh.GetIndexCount(0) : 0,
+            (uint) (numberReceivedPoints),
+            (cubeMesh != null) ? cubeMesh.GetIndexStart(0) : 0,
+            (cubeMesh != null) ? cubeMesh.GetBaseVertex(0) : 0,
+            0
+        };
+        argsBuffer.SetData(args);
+
         Graphics.DrawMeshInstancedIndirect(
              cubeMesh,
              0,
@@ -313,6 +415,7 @@ public class InstancedCubeRenderer : MonoBehaviour
              renderBounds,
              argsBuffer
         );
+
 
         // 5. Logging
         if (logPerformance)
@@ -388,6 +491,87 @@ public class InstancedCubeRenderer : MonoBehaviour
         pointCloudCompute.Dispatch(kernel, threadGroupsX, threadGroupsY, 1);
     }
 
+    /*
+    void setBuffersPointCloud()
+    {
+        Matrix4x4[] matrices = new Matrix4x4[numberReceivedPoints];
+        Vector3[] colors = new Vector3[numberReceivedPoints];
+
+        UnityEngine.Debug.Log("renderingLocation: " + renderingLocation);
+        UnityEngine.Debug.Log("renderingRotation: " + renderingRotation);
+        poseMatrix = Matrix4x4.TRS(renderingLocation, renderingRotation, Vector3.one);
+        for (int i = 0; i < numberReceivedPoints; i++)
+        {
+            int baseIdx = i * 6;
+
+            // Position
+            float x = latestpointCloud[baseIdx];
+            float y = latestpointCloud[baseIdx + 1];
+            float z = latestpointCloud[baseIdx + 2];
+
+            // Farbe
+            float r = latestpointCloud[baseIdx + 3];
+            float g = latestpointCloud[baseIdx + 4];
+            float b = latestpointCloud[baseIdx + 5];
+
+            // Matrix mit Position + uniforme Skalierung
+            matrices[i] = poseMatrix * Matrix4x4.TRS(
+                new Vector3(x*scale, y*scale, z*scale),               // Position
+                Quaternion.identity,                // Rotation (nicht gedreht)
+                Vector3.one * CubeSize * scale             // Skalierung (z. B. kleiner Würfel)
+            );
+
+            colors[i] = new Vector3(r, g, b);   // Farbe für Shader (RGBA)
+        }
+
+        matrixBuffer.SetData(matrices);
+        colorBuffer.SetData(colors);
+    }*/
+    
+
+    void setColorBuffer()
+    {
+        // In Vector3-Array konvertieren
+        Vector3[] rgbVectors = new Vector3[numberReceivedPoints];
+        for (int i = 0; i < numberReceivedPoints; i++)
+        {
+            rgbVectors[i] = new Vector3(
+                latestrgbData[i * 3 + 0] / 255f,
+                latestrgbData[i * 3 + 1] / 255f,
+                latestrgbData[i * 3 + 2] / 255f
+            );
+        }
+        colorBuffer.SetData(rgbVectors);
+    }
+
+    void setMatrixBufferPointCloud()
+    {
+        Matrix4x4[] matrices = new Matrix4x4[numberReceivedPoints];
+        UnityEngine.Debug.Log(numberReceivedPoints);
+        poseMatrix = Matrix4x4.TRS(renderingLocation, renderingRotation, Vector3.one);
+        for (int i = 0; i < numberReceivedPoints; i++)
+        {
+            // Indizes im Float-Array (3 Werte pro Punkt)
+            int baseIndex = i * 3;
+
+            float x = latestxyzData[baseIndex] / 1000f;
+            float y = latestxyzData[baseIndex + 1] / 1000f;
+            float z = latestxyzData[baseIndex + 2] / 1000f;
+
+            // Erstelle eine Matrix mit Position (x, y, z)
+            Matrix4x4 matrix = poseMatrix * Matrix4x4.TRS(
+                new Vector3(x * scale, y * scale, z * scale),   // Position
+                Quaternion.identity,                            // Keine Rotation
+                Vector3.one * CubeSize * scale                  // Einheitliche Skalierung, z. B. 0.01f
+            );
+
+            matrices[i] = matrix;
+        }
+
+        // ComputeBuffer setzen (zuvor korrekt initialisiert!)
+        matrixBuffer.SetData(matrices);
+    }
+
 
     /*
      * Cleans all buffers, stops the network-thread and closes the connection
@@ -459,6 +643,7 @@ public class InstancedCubeRenderer : MonoBehaviour
     /*
      * handles all incoming messages from the zmq server
      */
+    /*
     void ZmqListener()
     {
         AsyncIO.ForceDotNet.Force();
@@ -564,6 +749,153 @@ public class InstancedCubeRenderer : MonoBehaviour
             }
         }
     }
+    */
+
+
+    void ZmqListener()
+    {
+        AsyncIO.ForceDotNet.Force();
+
+        string serverIp = null;
+        bool serverfound = false;
+        while (!serverfound && isRunning)
+        {
+            serverIp = FindServer();
+            if (string.IsNullOrEmpty(serverIp))
+            {
+                UnityEngine.Debug.LogError("[ZMQ] No Server found.");
+                System.Threading.Thread.Sleep(1000);
+                continue;
+            }
+            serverfound = true;
+        }
+
+        using (subSocket = new SubscriberSocket())
+        {
+            subSocket.Connect($"tcp://{serverIp}:5555");
+            subSocket.Subscribe("PointCloud"); // <<< Das Topic abonnieren
+
+            UnityEngine.Debug.Log("[ZMQ] Subscriber verbunden mit Topic 'PointCloud'");
+
+            while (isRunning)
+            {
+                try
+                {
+                    // Multipart-Nachricht empfangen: [Topic, Daten]
+                    string topic = subSocket.ReceiveFrameString(); // Frame 1: Topic
+                    byte[] lengthBytes = subSocket.ReceiveFrameBytes();   // Frame 2: numPoints (4 Bytes)
+                    byte[] xyzBytes = subSocket.ReceiveFrameBytes();    // Frame 3: xyz
+                    byte[] rgbBytes = subSocket.ReceiveFrameBytes();    // Frame 4: rgb
+
+                    // Länge aus Frame 2 auslesen (int32, little endian)
+                    int numPoints = BitConverter.ToInt32(lengthBytes, 0);
+
+                    int xyzCount = xyzBytes.Length / sizeof(short);
+                    int rgbCount = rgbBytes.Length / sizeof(byte);
+                    if (xyzCount % 3 != 0 || xyzCount != rgbCount)
+                    {
+                        UnityEngine.Debug.LogWarning("[ZMQ] Ungültige Punktwolkendaten empfangen (Größe passt nicht)");
+                        return;
+                    }
+
+
+                    // In float[] umwandeln
+                    short[] xyzData = new short[xyzCount];
+                    byte[] rgbData = new byte[rgbCount];
+
+                    Buffer.BlockCopy(xyzBytes, 0, xyzData, 0, xyzBytes.Length);
+                    Buffer.BlockCopy(rgbBytes, 0, rgbData, 0, rgbBytes.Length);
+
+                    // Thread-safe speichern
+                    lock (Lock)
+                    {
+                        this.type = Type.PointCloud;
+                        this.sharedxyzData = xyzData;
+                        this.sharedrgbData = rgbData;
+                        this.sharedPointCount = numPoints;
+                        this.numberReceivedPoints_ts = xyzCount / 3;
+                    }
+
+                    UnityEngine.Debug.Log($"[ZMQ] Punktwolke empfangen: {numPoints} Punkte");
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError("[ZMQ] Fehler im Subscriber: " + ex.Message);
+                    break;
+                }
+            }
+        }
+    }
+
+    /*
+    void ZmqListener()
+    {
+        AsyncIO.ForceDotNet.Force();
+
+        string serverIp = null;
+        bool serverfound = false;
+        while (!serverfound && isRunning)
+        {
+            serverIp = FindServer();
+            if (string.IsNullOrEmpty(serverIp))
+            {
+                UnityEngine.Debug.LogError("[ZMQ] No Server found.");
+                System.Threading.Thread.Sleep(1000);
+                continue;
+            }
+            serverfound = true;
+        }
+
+        using (subSocket = new SubscriberSocket())
+        {
+            subSocket.Connect($"tcp://{serverIp}:5555");
+            subSocket.Subscribe("PointCloud"); // <<< Das Topic abonnieren
+
+            UnityEngine.Debug.Log("[ZMQ] Subscriber verbunden mit Topic 'PointCloud'");
+
+            while (isRunning)
+            {
+                try
+                {
+                    // Multipart-Nachricht empfangen: [Topic, Daten]
+                    string topic = subSocket.ReceiveFrameString(); // Frame 1: Topic
+                    byte[] lengthBytes = subSocket.ReceiveFrameBytes();   // Frame 2: numPoints (4 Bytes)
+                    byte[] payload = subSocket.ReceiveFrameBytes();    // Frame 3
+
+                    // Länge aus Frame 2 auslesen (int32, little endian)
+                    int numPoints = BitConverter.ToInt32(lengthBytes, 0);
+
+                    int floatCount = payload.Length / sizeof(float);
+                    if (floatCount % 6 != 0)
+                    {
+                        UnityEngine.Debug.LogWarning("[ZMQ] Ungültige Punktwolkendaten empfangen (Größe passt nicht)");
+                        return;
+                    }
+
+                    // In float[] umwandeln
+                    float[] pointCloud = new float[floatCount];
+                    Buffer.BlockCopy(payload, 0, pointCloud, 0, payload.Length);
+
+                    // Thread-safe speichern
+                    lock (Lock)
+                    {
+                        this.type = Type.PointCloud;
+                        this.sharedpointCloud = pointCloud;
+                        this.sharedPointCount = numPoints;
+                        this.numberReceivedPoints_ts = floatCount / 6;
+                    }
+
+                    UnityEngine.Debug.Log($"[ZMQ] Punktwolke empfangen: {numPoints} Punkte");
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError("[ZMQ] Fehler im Subscriber: " + ex.Message);
+                    break;
+                }
+            }
+        }
+    }
+    */
 
 
     /*
