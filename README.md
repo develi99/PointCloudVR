@@ -75,7 +75,7 @@ Assets/scenes/Cubes_advanced.unity
 
 You can confirm the scene is loaded if its name appears in the top-left corner of the Unity Editor.
 
-### 🧪 Running and Testing
+### 5. Running and Testing
 
 1. Run one of the Python example scripts located in the `examples/` folder.
 2. Make sure a depth camera or compatible input source is connected.
@@ -91,7 +91,7 @@ You can confirm the scene is loaded if its name appears in the top-left corner o
 > ⚠️ **Note**: Your PC and headset must be on the same Wi-Fi or LAN network. `localhost` is currently **not supported** for server-headset communication.
 
 
-### 📱 Build and Deploy to Meta Quest
+### 6. Build and Deploy to Meta Quest
 
 Once everything is working:
 
