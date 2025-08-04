@@ -90,9 +90,8 @@ You can confirm the scene is loaded if its name appears in the top-left corner o
 
 > ⚠️ **Note**: Your PC and headset must be on the same Wi-Fi or LAN network. `localhost` is currently **not supported** for server-headset communication.
 
----
 
-## 📱 Build and Deploy to Meta Quest
+### 📱 Build and Deploy to Meta Quest
 
 Once everything is working:
 
