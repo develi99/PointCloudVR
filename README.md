@@ -107,7 +107,7 @@ The application on Meta Quest requires RGB-D data, with the RGB component provid
 A key limitation is that it is currently not possible to generate a point cloud using data from more than one camera directly on the Meta Quest.
 Due to hardware constraints of the Meta Quest, it would be more efficient to compute the point cloud externally—ideally within the Python script—and then transmit the resulting data to the headset.
 
-i am wokring on a version that implements these things. I will commit it when i finished it (i guess september 2025).
+i am wokring on a version that implements these things. I will commit it when i finished it.
 
 ---
 
