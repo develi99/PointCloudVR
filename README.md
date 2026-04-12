@@ -1,122 +1,125 @@
-# 📡 PointCloudVR
+# 📡 PointCloudVR – Real-Time Point Cloud Streaming for VR
 
-**PointCloudVR** enables live visualization of RGB-D point clouds streamed from an external camera into a VR environment using Meta Quest. It combines real-time depth processing, GPU-accelerated rendering, and XR controller interaction for immersive exploration of spatial data.
+PointCloudVR is a modular system for streaming and rendering 3D point cloud data in VR using Meta Quest headsets. The system supports two different pipelines depending on where the point cloud is generated: **on-device GPU reconstruction from RGB-D streams** or **precomputed point cloud streaming**.
 
----
-
-## 🚀 Features
-
-- 🔄 Real-time streaming of RGB and depth data via ZeroMQ
-- 🧠 GPU-based computation and rendering of 3D point clouds
-- 🎮 Intuitive VR interaction using Meta Quest controllers (Unity XR)
-- 🧩 Modular architecture – easy to extend or integrate into other XR workflows
-
----
-
-## 🎥 Demo Video
-
-PointCloudVR was used for **teleoperated robot demonstrations**.
-
-A demo video is available in the [`video/`](video/) folder.
-
-- Input resolution: **214 × 160** (~34,000 points)
-- Each pixel is visualized as a **3D cube**
-- Achieved:
-  - **~70 FPS rendering**
-  - **~30 FPS data streaming** (main bottleneck)
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="video/Latency.gif" width="100%"/><br/>
+      <b>Latency</b>
+    </td>
+    <td align="center">
+      <img src="video/PushT.gif" width="100%"/><br/>
+      <b>Push-T Task</b>
+    </td>
+  </tr>
+</table>
+<!-- <img src="video/Latency.gif" width="100%"/> -->
+<!-- <img src="video/PushT.gif" width="100%"/> -->
 
 ---
 
-## 🧱 Project Structure
+## 🧠 System Overview
 
-```bash
-PointCloudVR/
-├── python/      # Python-based streamer sending RGBD data
-├── unity/       # Unity XR application for Meta Quest
-├── example/     # Example configurations for the streamer
-├── docs/        # Project documentation
-├── video/       # Demo videos
-├── LICENSE
-└── README.md
-```
+The architecture consists of two independent modes:
 
-## Installation
+### **Mode A: RGB-D Streaming → GPU Reconstruction (Quest-side)**
 
-### 1. Clone the Repository
+* The streamer sends **RGB + Depth images** to the headset.
+* The Quest reconstructs the point cloud in real time using **GPU compute shaders**.
+* Rendering is fully GPU-accelerated inside Unity.
 
-First, clone this repository to your local machine:
-
-```bash
-git clone https://github.com/develi99/PointCloudVR.git
-```
-
-### 2. Install the Python Package
-
-Navigate into the project directory and install the Python module in editable mode:
-
-```bash
-cd PointCloudVR
-pip install -e .
-```
-
-### 3. Open the Unity Project
-
-1. Open the Unity project located in the `unity/` directory using Unity (2020.3 or later is recommended).
-2. Unity may prompt you to install additional packages or apply automatic fixes — go ahead and accept those.
-3. If errors still appear, close and reopen Unity. This often resolves temporary import issues.
-
-### 4. Load the Correct Scene
-
-Manually open the following scene in Unity:
+**Pipeline:**
 
 ```
-Assets/scenes/Cubes_advanced.unity
+Camera → Python Streamer → (RGB + Depth) → Quest → Compute Shader → Point Cloud Rendering
 ```
 
-You can confirm the scene is loaded if its name appears in the top-left corner of the Unity Editor.
+**Key characteristics:**
 
-### 5. Running and Testing
-
-1. Run one of the Python example scripts located in the `examples/` folder.
-2. Make sure a depth camera or compatible input source is connected.
-3. To use your own custom source, add it under:
-
-```
-/streamer/Source
-```
-
-4. Once the Python server is running, open the Unity scene.
-   - If nothing appears at first, try restarting Unity. It should begin visualizing the stream once the server is active.
-
-> ⚠️ **Note**: Your PC and headset must be on the same Wi-Fi or LAN network. `localhost` is currently **not supported** for server-headset communication.
-
-
-### 6. Build and Deploy to Meta Quest
-
-Once everything is working:
-
-1. Build the Unity project for Android (for the Meta Quest).
-2. Deploy the build to your Meta Quest headset.
-3. Ensure both the Python server (on your PC) and the Unity app (on the Quest) are running **within the same subnet** — otherwise, the connection will fail.
+* Lightweight streamer (only image resizing + transmission)
+* Flexible resolution control via downsampling
+* High performance rendering on Quest GPU
+* No multi-view fusion on streamer side
 
 ---
 
-## Limitations
+### **Mode B: Precomputed Point Cloud Streaming (CPU/Server-side reconstruction)**
 
-The application on Meta Quest requires RGB-D data, with the RGB component provided as a JPEG image and the depth data as a raw array.
-A key limitation is that it is currently not possible to generate a point cloud using data from more than one camera directly on the Meta Quest.
-Due to hardware constraints of the Meta Quest, it would be more efficient to compute the point cloud externally—ideally within the Python script—and then transmit the resulting data to the headset.
+* The streamer generates the **complete point cloud on the host machine**.
+* The Quest only receives already-processed 3D points.
+* Rendering is done via optimized GPU shaders in Unity.
 
-i am wokring on a version that implements these things. I will commit it when i finished it.
+**Pipeline:**
+
+```
+Camera → Python Streamer → Point Cloud Generation → Stream → Quest → GPU Point Cloud Renderer
+```
+
+**Key characteristics:**
+
+* More computational flexibility on host machine
+* Supports:
+
+  * segmentation
+  * filtering & denoising
+  * point cloud fusion (multi-view support)
+* More efficient runtime on Quest
+* Enables multi-camera setups (MV possible)
 
 ---
 
-## Documentation
+## ⚙️ Core Design Goals
 
-You can find a documentation [here](/docs/docu.md)
+* Real-time streaming with minimal latency
+* GPU-accelerated rendering in Unity (compute shaders + instancing)
+* Modular pipeline separation (capture → process → render)
+* Support for scalable point cloud resolution
 
 ---
 
-## 📄 License
+## 🎮 Rendering on Quest
 
-This project is licensed under the [MIT License](LICENSE).
+Both modes use a shared rendering approach:
+
+* GPU instancing / compute shaders
+* Efficient point cloud buffers
+* Real-time updates via streaming interface
+
+---
+
+## ⚡ Performance Considerations
+
+| Mode                  | Bottleneck                      | Strength                             |
+| --------------------- | ------------------------------- | ------------------------------------ |
+| RGB-D Streaming       | Network + reconstruction shader | Low bandwidth, simple pipeline       |
+| Point Cloud Streaming | CPU generation on host          | High flexibility, multi-view capable |
+
+---
+
+## 📌 Key Difference Between Modes
+
+* **Mode A (RGB-D):**
+
+  * Minimal streamer complexity
+  * No multi-view fusion on host
+  * Reconstruction happens on Quest GPU
+
+* **Mode B (Point Cloud):**
+
+  * Full control over point cloud generation
+  * Supports segmentation, filtering, merging
+  * More efficient rendering pipeline on Quest
+
+---
+
+## 📄 Documentation
+
+Further details can be found in [Docu](Documentation/documentation.md)
+
+
+---
+
+## 🪪 License
+
+MIT License

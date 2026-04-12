@@ -1,0 +1,73 @@
+# Renderer
+
+The Renderer was developed in Unity and is build for Meta Quest. We used a Meta Quest 3 but the Code should also work on other Versions.
+In ... you can find the Unity Project. To open it, just import this folder in Unity as a Unity Project. 
+
+
+# Point Cloud Rendering
+
+The Pointcloud Rendering is implemented in [file.cs](...). The Basic Idea is to receive a pointcloud and then use a own programmed shader to render these points as cubes as fast as possible.
+
+In the implemented rendering method, the Meta Quest receives pre-computed 3D point coordinates directly from the streaming system.  
+Unlike the RGB-D approach, the headset does not need to reconstruct the 3D geometry from depth and RGB images, since the point positions are already calculated and, if necessary, merged from multiple camera inputs.
+
+The received points are transferred into a **GPU buffer**, which is then accessed by a **custom shader** for rendering.  
+By leveraging **GPU instancing** and issuing only a **single draw call**, the system can display thousands or even millions of points in real time without overloading the CPU or the Unity scene hierarchy.
+
+This GPU-based rendering pipeline provides several key advantages:
+
+- All point rendering operations are handled directly on the GPU, significantly reducing CPU load and avoiding performance bottlenecks caused by large numbers of individual GameObjects.  
+- Point clouds merged from multiple camera sources can be displayed seamlessly, resulting in more complete and accurate 3D scene representations.  
+- Network transmission is simplified, as only point coordinates need to be sent — which is often more bandwidth-efficient than transmitting full RGB-D image data, particularly when multiple cameras are involved.  
+
+Overall, the **Point Cloud Rendering** approach delivers a **scalable and high-performance solution** for real-time 3D visualization in VR.  
+By offloading the rendering workload to the GPU and minimizing CPU overhead, this method overcomes the typical limitations of RGB-D-based reconstruction on the headset and ensures smooth visualization even for large, complex environments.
+
+## Implementation Details
+
+The main functionality is contained within the `PointCloud` class, which is attached to a Unity GameObject in the scene.  
+The following section outlines the general flow of data processing and rendering.
+
+### Overview of the Execution Flow
+
+1. **Initialization (`Start()` method)**  
+   When the scene starts, the script creates the basic mesh (a Unity primitive cube) that serves as the rendering unit for each point.  
+   It initializes the required GPU buffers and starts a background thread that listens for incoming point cloud data via ZeroMQ.
+
+2. **Data Reception (`ZmqListener()` thread)**  
+   The background thread continuously listens for new point cloud data from the network.  
+   - It connects to the point cloud streaming server via ZeroMQ.  
+   - Once connected, it receives multipart messages containing:  
+     - The topic name,  
+     - The number of points,  
+     - The XYZ coordinate data, and  
+     - The RGB color data.  
+   - The received data is copied into shared memory buffers (`sharedxyzData`, `sharedrgbData`) in a thread-safe manner.  
+   - These buffers are later accessed by the main Unity thread for rendering.
+
+3. **Frame Update and Rendering (`Update()` method)**  
+   During every Unity frame:
+   - The latest data from the listener thread is safely transferred to the main thread (`ThreadSafeReadingPointCloudData()`).
+   - If new point data is available, the GPU buffers are updated:
+     - `setMatrixBufferPointCloud()` constructs transformation matrices for each point, defining position and scale.  
+     - `setColorBuffer()` fills the GPU color buffer with RGB data for each corresponding point.  
+   - Once buffers are updated, Unity’s `Graphics.DrawMeshInstancedIndirect()` is used to render all points in a single draw call using the instancing shader.
+
+4. **Continuous Rendering Loop**  
+   This process repeats every frame. The data is continuously updated in real time as new point cloud information is received from the network.  
+   The use of double buffering (shared and latest arrays) ensures that data is read safely between threads without blocking either network reception or rendering.
+
+5. **Cleanup (`OnDestroy()` method)**  
+   When the application or scene is closed, the script releases all GPU buffers, stops the network thread, and closes the ZeroMQ socket to ensure a clean shutdown.
+
+---
+
+### Summary
+
+The system establishes a continuous pipeline:
+1. **Receive point cloud data via ZeroMQ**  
+2. **Transfer the data safely to the main Unity thread**  
+3. **Upload to GPU buffers for instanced rendering**  
+4. **Render all points efficiently using a custom shader**
+
+This design enables real-time visualization of dense 3D point clouds in VR without burdening the CPU, ensuring smooth and scalable performance even for large environments.

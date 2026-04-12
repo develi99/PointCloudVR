@@ -1,0 +1,71 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float4x4> matrixBuffer;
+RWStructuredBuffer<uint> depthBuffer;
+
+int _Width;
+int _Height;
+float _Fx;
+float _Fy;
+float _Cx;
+float _Cy;
+float _CubeSize;
+float _Scale;
+
+float _CullMinZ;
+float _CullMaxZ;
+
+float _CullX;
+float _CullY;
+
+float4x4 _PoseMatrix;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint x = id.x;
+    uint y = id.y;
+
+    if (x >= _Width || y >= _Height) return;
+
+    uint flippedY = _Height - 1 - y;
+    uint index = flippedY * _Width + x;
+
+    uint depthRaw = depthBuffer[index];
+    float z = (float) depthRaw * 0.001f; // ggf. skalieren
+
+    float X = (x - _Cx) * z / _Fx;
+    float Y = (y - _Cy) * z / _Fy;
+
+    float4x4 mat;
+
+    //Culling, see bounds for rendering
+    if (z < _CullMinZ || z > _CullMaxZ || abs(X) > _CullX || abs(Y) > _CullY)
+    {
+        mat = float4x4(
+            float4(0, 0, 0, 99999),
+            float4(0, 0, 0, 99999),
+            float4(0, 0, 0, 99999),
+            float4(0, 0, 0, 1)
+        );
+    }
+    else {
+        mat = float4x4(
+            float4(_CubeSize,   0,          0,          X),
+            float4(0,           _CubeSize,  0,          Y),
+            float4(0,           0,          _CubeSize,  z),
+            float4(0,           0,          0,          1)
+        );
+    }
+    
+    //Scaling, for better visualisation
+    mat[0] *= _Scale;
+    mat[1] *= _Scale;
+    mat[2] *= _Scale;
+    mat[3] *= _Scale;
+
+    // Apply Translation and Rotation
+    mat = mul(_PoseMatrix, mat);
+
+    matrixBuffer[y * _Width + x] = mat;
+}

@@ -1,4 +1,4 @@
+**/__pycache__/
+streamer/ply_output/
+.vscode/
 .venv/
-streamer.egg-info/
-streamer/streamer.egg-info/
-my_project.zip

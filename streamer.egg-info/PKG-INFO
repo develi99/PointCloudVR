@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: streamer
+Version: 0.1.0
+Summary: Process RGB-D data
+Author: Elias Wucher
+License: MIT
+License-File: LICENSE
+Dynamic: license-file
