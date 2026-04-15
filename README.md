@@ -117,8 +117,6 @@ Both modes use a shared rendering approach:
 
 Further details can be found in [Docu](Documentation/documentation.md)
 
-Currently there is an error in the code i have to fix, so without adaptions you want be able to use it
-
 ---
 
 ## 🪪 License
