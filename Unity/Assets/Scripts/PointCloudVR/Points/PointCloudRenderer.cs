@@ -16,10 +16,16 @@ using UnityEngine.XR;
 using UnityEngine.XR.OpenXR;
 using UnityEngine.XR.OpenXR.Features;
 using UnityEngine.Android;
+using TMPro;
 
 
 public class PointCloud : MonoBehaviour
 {
+    public TextMeshProUGUI text;
+    float timeAccumulator = 0f;
+    int frameCount = 0;
+
+
     private readonly object Lock = new object();
 
     private Thread listenerThread;
@@ -229,6 +235,8 @@ public class PointCloud : MonoBehaviour
         if (IsButtonPressed(leftController, CommonUsages.secondaryButton)) // Y: increase cubeSize
             CubeSize += cubeSizeSpeed;
 
+        obj.transform.position = renderingLocation;
+        obj.transform.rotation = renderingRotation;
     }
 
 
@@ -283,6 +291,20 @@ public class PointCloud : MonoBehaviour
             UnityEngine.Debug.Log("position manager: " + obj.transform.position);
             UnityEngine.Debug.Log("position rotation: " + obj.transform.rotation);
             timeSinceLastLog = 0f;
+        }
+
+        timeAccumulator += Time.unscaledDeltaTime;
+        frameCount++;
+
+        if (timeAccumulator >= 1.0f)
+        {
+            float fps = frameCount / timeAccumulator;
+
+            text.text = $"{fps:0} FPS";
+
+            // Reset für nächste Sekunde
+            timeAccumulator = 0f;
+            frameCount = 0;
         }
     }
 
@@ -412,6 +434,7 @@ public class PointCloud : MonoBehaviour
                 {
                     // Multipart-Nachricht empfangen: [Topic, Daten]
                     string topic = subSocket.ReceiveFrameString(); // Frame 1: Topic
+                    UnityEngine.Debug.LogWarning("Received Pointcloud" + topic);
                     byte[] lengthBytes = subSocket.ReceiveFrameBytes();   // Frame 2: numPoints (4 Bytes)
                     byte[] xyzBytes = subSocket.ReceiveFrameBytes();    // Frame 3: xyz
                     byte[] rgbBytes = subSocket.ReceiveFrameBytes();    // Frame 4: rgb

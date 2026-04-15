@@ -29,9 +29,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/Archiv/Cubes_simple.unity
     guid: ac87638ffc93bed4da93a16aeebbf51e
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Points.unity
     guid: cc5f944d0a36c4d47bc4b95e61005dd6
+  - enabled: 1
+    path: Assets/Scenes/Archiv/enes/particle.unity
+    guid: 0006920aa1b35ce4ea6e6c800d8e929c
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: c776680e14f703b4eb000c604e689def, type: 2}
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 6c8d7a1b2ebe8a7438509417a10de37e, type: 2}

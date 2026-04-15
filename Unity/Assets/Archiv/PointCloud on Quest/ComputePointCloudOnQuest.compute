@@ -1,0 +1,31 @@
+#pragma kernel CSMain
+#pragma target 4.5
+
+RWStructuredBuffer<float3> vertexBuffer;
+RWStructuredBuffer<float4> colorBuffer;
+
+Texture2D<float4> rgbTex;
+Texture2D<float> depthTex;
+
+int width;
+int height;
+float scaleXY;
+float maxDepth;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= width || id.y >= height)
+        return;
+    
+    int i = id.y * width + id.x;
+
+    float4 depthColor = depthTex.Load(int3(id.x, id.y, 0));
+    float z = depthColor.r * maxDepth;
+    
+    float x = (id.x - (width / 2.0f)) * scaleXY;
+    float y = (id.y - (height / 2.0f)) * scaleXY;
+    
+    vertexBuffer[i] = float3(x, y, z);
+    colorBuffer[i] = rgbTex.Load(int3(id.x, id.y, 0));
+}

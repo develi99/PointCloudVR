@@ -1,0 +1,33 @@
+﻿#pragma kernel CSMain
+
+RWStructuredBuffer<float3> vertices;
+StructuredBuffer<uint> DepthBuffer;
+
+int width;
+int height;
+
+static const float fx = 591.4252319335938f;
+static const float fy = 591.4252319335938f;
+static const float cx = 320.1325988769531f;
+static const float cy = 239.1476745605468f;
+static const float depthScale = 0.001f; // z.B. 1mm pro Einheit -> toMeter
+static const float scale = 50.0f;
+
+[numthreads(8, 8, 1)]
+void CSMain(int3 id : SV_DispatchThreadID)
+{
+    if (id.x >= width || id.y >= height)
+        return;
+
+    // Flip nur bei depth
+    int flippedY = height - 1 - id.y;
+    int flippedI = flippedY * width + id.x;
+    float z = DepthBuffer[flippedI] * depthScale;
+    
+    int i = id.y * width + id.x;
+
+    float x = ((id.x - cx) * z) / fx;
+    float y = ((id.y - cy) * z) / fy;
+
+    vertices[i] = float3(x * scale, y * scale, z * scale);
+}

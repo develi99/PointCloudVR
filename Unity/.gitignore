@@ -84,9 +84,9 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 #own
-/[Aa]ssets/Archiv
-/[Aa]ssets/PointCloudStuff
-/[Aa]ssets/Scenes/Archiv/
+# /[Aa]ssets/Archiv
+# /[Aa]ssets/PointCloudStuff
+# /[Aa]ssets/Scenes/Archiv/
 
 # Visual Scripting auto-generated files
 /[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db

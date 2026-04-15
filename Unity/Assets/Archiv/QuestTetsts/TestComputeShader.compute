@@ -1,0 +1,14 @@
+// SimpleCompute.compute
+#pragma kernel CSMain
+
+RWTexture2D<float4> Result;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = id.xy / float2(256.0, 256.0);
+    float r = uv.x;
+    float g = uv.y;
+    float b = 0.5;
+    Result[id.xy] = float4(r, g, b, 1.0);
+}
