@@ -16,3 +16,18 @@ For the Renderer that receives RGBD you only have to send the images, there exis
 
 - [RGBD](../Documentation/docu): Located in [Scene](../Unity/Assets/Scenes/RGBD.unity)
 - [PointCloud](../Documentation/docu_renderer) Located in [Scene](../Unity/Assets/Scenes/Points.unity)
+
+## Insallation & Usage
+
+### Build Project
+You can either deploy the apk in the git root or build it on your own.
+- Open the Unity Folder as a Unity Project (We used Unity version 6000.0.24f1)
+- Go to Build Profiles
+- Switch to Android
+- And then select the scene you want either Points or RGBD (you can find them in scenes)
+- Deploy apk on your device
+
+### Run
+- start the server code first (streamer)
+- do this by running Streamer.py (you have to adapt this to your needs, the calibration and camera config will not work for you)
+- then start the Unity Code
